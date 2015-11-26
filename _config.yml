@@ -1,5 +1,5 @@
 # Where things are
-source:      ./src
+# source:      ./src
 # destination: ./target
 plugins:     ./_plugins
 layouts:     ./_layouts
