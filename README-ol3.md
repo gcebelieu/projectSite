@@ -1,4 +1,4 @@
-# Extensions Géoportail pour OpenLayers 3
+# Extension Géoportail pour OpenLayers 3
 
 L'extension Géoportail pour OpenLayers 3 propose les fonctionnalités suivantes à utiliser en complément de la biblothèque [OpenLayers 3](http://openlayers.org/) :
 
@@ -12,7 +12,7 @@ L'extension Géoportail pour OpenLayers 3 propose les fonctionnalités suivantes
 
 * [barre de recherche utilisant le service de géocodage IGN](#geocode)
 
-* [Obtention d'une adresse, d'un nom de lieu, ... au clic sur la carte](#reverse)
+* [obtention d'une adresse, d'un nom de lieu, ... au clic sur la carte](#reverse)
 
 * [calculs d'itinéraires à partir du service de la plateforme Géoportail](#route)
 
@@ -26,7 +26,7 @@ L'extension Géoportail pour OpenLayers 3 propose les fonctionnalités suivantes
 
 ### Téléchargement
 
-Vous pouvez récupérer l'extension Géoportail pour OpenLayers 3 ici [GpOpenLayers3.zip](#TODO). Elle contient l'arborescence suivante :
+Vous pouvez récupérer l'extension Géoportail pour OpenLayers 3 ici : [GpOpenLayers3.zip](#TODO). Elle contient l'arborescence suivante :
 
 ol3/
     GpPluginOl3.js         (version minifiée du code javascript pour une utilisation en production)
@@ -41,7 +41,7 @@ ol3/
 
 Dézippez l'extension géoportail dans l'arborescence votre serveur web. Vous pouvez positionner à votre guise les fichiers css et javascript. Le répertoire img doit cependant être positionné au même niveau que le fichier css pour que les ressources images qui y sont référencées soient correctement chargées.
 
-Intégrez l'extension géoportail pour ol3 dans votre page web classiquement à l'aide d'une balise **script** pour charger le fichier javascript et d'une balise **link** pour charger le fichier css en plus des balises correspondantes utilisées pour charger la bibliothèque OL3.
+Intégrez l'extension géoportail pour ol3 dans votre page web classiquement à l'aide d'une balise **script** pour charger le fichier javascript et d'une balise **link** pour charger le fichier css en plus des balises correspondantes utilisées pour charger la bibliothèque OpenLayers 3.
 
 ``` html
 <!-- Library OpenLayers 3 -->
@@ -249,61 +249,184 @@ var map = new ol.Map({
 
 NB : D'autres systèmes de coordonnées peuvent être définis et utilisés : [plus d'informations...](#crs)
 
-<a id="layerWMTS"/>
+<a id="sourceWMTS"/>
 
 #### Utilisation d'une source WMTS Géoportail
+
+Cette méthode permet plus de paramétrages : on crée une nouvelle instance de la classe [ol.source.GeoportalWMTS](https://depot.ign.fr/geoportail/extensions/ol3/develop/doc/ol.source.GeoportalWMTS.html), de la manière suivante : 
+
+``` javascript
+var gpsource = new ol.source.GeoportalWMTS(options);
+```
+
+Cette fonction retourne un objet **ol.source.GeoportalWMTS**, qui hérite de l'objet OpenLayers *ol.source.WMTS*. Cette source sert ensuite à la création d'un *layer* OpenLayers qui pourra ensuite être ajouté à la carte.
+
+``` javascript
+var layer = new ol.layer.Tile({
+    source : gpsource
+});
+```
+
+##### Exemple d'utilisation
+
+Affichage simple des ortho-images du Géoportail : création d'un *layer* OpenLayers associé à une *source* Géoportail, et ajout à la *map* OpenLayers 3.
+
+``` javascript
+var map = new ol.Map({
+    target: 'map',
+    layers: [
+        new ol.layer.Tile({
+            source: new ol.source.GeoportalWMTS({
+                layer: "ORTHOIMAGERY.ORTHOPHOTOS"
+            }),
+            opacity: 0.7
+        })
+    ],
+    view: new ol.View({
+        center: [288074.8449901076, 6247982.515792289],
+        zoom: 12
+    })
+});
+```
+
+**Exemple d'utilisation** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/sdktaf9r/embedded/result,js,html,css/)
+
+##### Affichage en Lambert 93 (EPSG:2154)
+
+La plateforme Géoportail diffuse aussi des ressources WMTS en projection Lambert 93. Pour permettre de les afficher, l'extension Géoportail pour OpenLayers 3 pré-définit l'alias "EPSG:2154" correspondant à cette projection.
+
+Il suffit alors de paramétrer la carte OpenLayers 3 avec cette projection et d'y rajouter la ressource WMTS de la même manière que précédemment.
+
+``` javascript
+var map = new ol.Map({
+    target: 'map',
+    layers: [
+        new ol.layer.Tile({
+            source: new ol.source.GeoportalWMTS({
+                layer: "ORTHOIMAGERY.ORTHOPHOTOS.BDORTHO.L93"
+            }),
+            opacity: 0.7
+        })
+    ],
+    view: new ol.View({
+        center: [600000, 6750000],
+        zoom: 12,
+        projection : "EPSG:2154"
+    })
+});
+```
+
+**Exemple d'utilisation** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/o6tnhpnd/embedded/result,js,html,css/)
+
+
+NB : D'autres systèmes de coordonnées peuvent être définis et utilisés : [plus d'informations...](#crs)
 
 
 <a id="WMS"/>
 
-### Affichage des couche WMS Géoportail
+### Affichage des couches WMS Géoportail
 
-L'affichage des couches WMS Géoportail se fait à l'aide de la fonction [L.geoportalLayer.WMS()](http://depot.ign.fr/geoportail/extensions/ol3/develop/doc/module-Layers.html#~WMS), utilisée de la manière suivante :
+Le modèle de données OpenLayers 3 fait la distinction entre la notion de couche (ol.layer) et la notion de source de données (ol.source). Ainsi, une carte OpenLayers 3 est constituée d'un empilement de "ol.layer", avec des propriétés relatives à leurs visibilité sur la carte, dont le contenu est alimenté par des "ol.source", avec des propriétés relatives à la manière d'obtenir ces données.
+
+L'extension Géoportail pour OpenLayers 3 propose deux manières d'accéder aux couches Géoportail selon ce modèle :
+
+1. on souhaite une mise en oeuvre simple, où on saisit uniquement le nom de sa couche, et d'éventuels paramètres d'affichage (visibilité ou opacité). Définition d'un [layer WMS Géoportail](#layerWMS).
+
+2. On souhaite pouvoir paramétrer plus finement l'affichage de sa couche dans la carte, ainsi que d'éventuels paramètres du service (format, style, ...). Définitions d'une [source WMS Géoportail](#sourceWMS).
+
+<a id="layerWMS"/>
+
+#### Utilisation d'un layer WMS Géoportail
+
+L'affichage se fait par la création d'une nouvelle instance de la classe [ol.layer.GeoportalWMS](https://depot.ign.fr/geoportail/extensions/ol3/develop/doc/ol.layer.GeoportalWMS.html), de la manière suivante :
 
 ``` javascript
-L.geoportalLayer.WMS(options[,ol3Params]);
+new ol.layer.GeoportalWMTS(options);
 ```
 
-Cette fonction retourne un objet de type [L.TileLayer.WMS](http://ol3js.com/reference.html#tilelayer-wms).
+Cette fonction retourne un objet **ol.layer.GeoportalWMS**, qui hérite de l'objet OpenLayers *ol.layer.Tile*, qui peut ainsi être interprété par la librairie OpenLayers pour l'ajout dans la carte.
 
-### Exemple d'utilisation
+##### Exemple d'utilisation
 
-#### Utilisation simple de la fonction
-
-Affichage des orthos-images servies par le service WMS INSPIRE de la plateforme Géoportail sur une carte OpenLayers 3 en projection EPSG:4326.
-
+Affichage d'une couche du serveur WMS INSPIRE raster du Géoportail (OI.OrthoimageCoverage) sur une carte en EPSG:4326.
 
 ``` javascript
-// creation de la carte
-var map = L.map("map",{
-    crs : L.CRS.EPSG4326
-}).setView([16.239, -61.545], 12);
-
-// creation et ajout de la couche WMS à la carte
-L.geoportalLayer.WMS({
-    layer: "OI.OrthoimageCoverage"
-}).addTo(map);
+var map = new ol.Map({
+    target: 'map',
+    layers: [
+      new ol.layer.GeoportalWMS({
+        layer: "OI.OrthoimageCoverage",
+      })
+    ],
+    view: new ol.View({
+      center: [2, 46],
+      zoom: 12,
+      projection: "EPSG:4326"
+    })
+});
 ```
 
-**Exemple d'utilisation** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/d9402Lba/embedded/result,js,html,css/)
+**Exemple d'utilisation** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/jnfwc7k6/embedded/result,js,html,css/)
+
+<a id="sourceWMS"/>
+
+#### Utilisation d'une source WMS Géoportail
+
+Cette méthode permet plus de paramétrages : on crée une nouvelle instance de la classe [ol.source.GeoportalWMS](https://depot.ign.fr/geoportail/extensions/ol3/develop/doc/ol.source.GeoportalWMS.html), de la manière suivante : 
+
+``` javascript
+var gpsource = new ol.source.GeoportalWMS(options);
+```
+
+Cette fonction retourne un objet **ol.source.GeoportalWMS**, qui hérite de l'objet OpenLayers *ol.source.TileWMS*. Cette source sert ensuite à la création d'un *layer* OpenLayers qui pourra ensuite être ajouté à la carte.
+
+``` javascript
+var layer = new ol.layer.Tile({
+    source : gpsource
+});
+```
+
+##### Exemple d'utilisation
+
+Utilisation des service WMS INSPIRE raster (OI.OrthoimageCoverage) du Géoportail : création d'un *layer* OpenLayers associés à un *source* Géoportail, et ajout à la *map* OpenLayers 3.
+
+``` javascript
+var map = new ol.Map({
+    target: 'map',
+    layers: [
+        new ol.layer.Tile({
+            source: new ol.source.GeoportalWMS({
+                layer: "OI.OrthoimageCoverage",
+            })
+        })
+    ],
+    view: new ol.View({
+        center: [-61.55, 16.25],
+        zoom: 12,
+        projection : "EPSG:4326"
+    })
+});
+```
+
+**Exemple d'utilisation** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/e36ur78k/embedded/result,js,html,css/)
 
 
 <a id="layerswitcher"/>
 
 ### Widget de gestion d'empilement des couches
 
-Ce widget permet à l'utilisateur de gérer l'empilement des couches composant la carte L.Map et, pour chacune d'elle, d'agir sur la visibilité, l'opacité et d'afficher des informations qui lui sont associées (titre, description, métadonnées, légende).
+Ce widget permet à l'utilisateur de gérer l'empilement des couches composant la carte ol.Map et, pour chacune d'elle, d'agir sur la visibilité, l'opacité et d'afficher des informations qui lui sont associées (titre, description, métadonnées, légende).
 
-Son utilisation se fait par la création d'un nouveau contrôle à l'aide de la fonction [L.geoportalControl.LayerSwitcher()](http://depot.ign.fr/geoportail/extensions/ol3/develop/doc/module-Controls.html#~LayerSwitcher), que l'on peut ensuite ajouter à la carte comme [les autres contrôles OpenLayers 3](http://ol3js.com/reference.html#map-stuff-methods), par exemple de la manière suivante :
+Son utilisation se fait par la création d'un nouveau contrôle instance de la classe[ol.control.LayerSwitcher ](https://depot.ign.fr/geoportail/extensions/ol3/develop/doc/ol.control.LayerSwitcher.html), que l'on peut ensuite ajouter à la carte comme [les autres contrôles OpenLayers 3](http://openlayers.org/en/latest/apidoc/ol.Map.html#addControl), de la manière suivante :
 
 ``` javascript
-var layerSwitcher = L.geoportalControl.LayerSwitcher(opts);
+var layerSwitcher = new ol.control.LayerSwitcher(opts) ;
 map.addControl(layerSwitcher);
 ```
 
-Le widget affiche l'ensemble des couches composant la carte L.Map.
+Le widget affiche l'ensemble des couches composant la carte ol.Map.
 
-Pour chaque couche de la carte L.Map, le widget affiche son titre et sa description (par défaut : l'identifiant OpenLayers 3 de la couche), et, si elles sont spécifiées, des informations plus détaillées : légendes, métadonnées, aperçu rapide.
+Pour chaque couche de la carte ol.Map, le widget affiche son titre et sa description (par défaut : l'identifiant OpenLayers 3 de la couche), et, si elles sont spécifiées, des informations plus détaillées : légendes, métadonnées, aperçu rapide.
 
 La récupération de ces informations n'est pas la même selon la manière dont chaque couche a été ajoutée à la carte :
 
@@ -315,56 +438,44 @@ La récupération de ces informations n'est pas la même selon la manière dont 
 
 ##### Utilisation simple
 
-Ajout du widget de gestion de l'empilement des couches sans paramétrage particulier.
+Ajout du widget de gestion de l'empilement des couches. Paramétrage des couches non Géoportail.
 
 ``` javascript
-// Création de la carte
-var map = L.Map('divmap', {center: [2.38, 45.23] , zoom: 13});
-
-// création et ajout d'une cocuhe Géoportail
-var lyr = L.geoportalLayer.WMTS({
-    layer  : "ORTHOIMAGERY.ORTHOPHOTOS",
+// couche OSM (non Géoportail)
+var osmLyr = new ol.layer.Tile({
+    source: new ol.source.OSM()
 });
-lyr.addTo(map); // ou map.addLayer(lyr);
-
-// Création et ajout du LayerSwitcher
-map.addControl(
-    L.geoportalControl.LayerSwitcher()
-);
-```
-
-##### Utilisation personnalisée
-
-Paramétrage de l'affichage de la couche dans le LayerSwitcher.
-
-``` javascript
 // Création de la carte
-var map = L.Map('divmap', {center: [2.38, 45.23] , zoom: 13});
-
-// Création d'une couche quelconque
-var lyr = L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png?') ;
-
-// Création et ajout du LayerSwitcher à la carte
-map.addControl(
-    L.geoportalControl.LayerSwitcher({
-        layers : [{
-            layer : lyr,
-            config : {
-                title : "Couche externe",
-                description : "Description de ma couche",
-                quicklookUrl : "lien/Vers/UnApercuRapide.png",
-                legends: [{url : "lien/Vers/UneLegende.png"}],
-                metadata : [{url : "lien/Vers/Une/MetaDonnee.xml"}]
-            }
-        }],
-        options : {
-            collapsed : true
-        }
+var map = new ol.Map({
+    target: 'map',
+    layers: [
+        osmLyr,
+        // couche Géoportail
+        new ol.layer.GeoportalWMTS({
+            layer: "GEOGRAPHICALGRIDSYSTEMS.MAPS",
+        })
+    ],
+    view: new ol.View({
+        center: [288074.8449901076, 6247982.515792289],
+        zoom: 12
     })
-);
+});    
+// Création du Layer Switcher
+var lsControl = new ol.control.LayerSwitcher({
+    // paramétrage de l'affichage de la couche OSM
+    layers : [{
+        layer: osmLyr,
+        config: {
+            title: "OSM",
+            description: "Couche OpenStreet Map",
+        }
+    }] 
+});
+// Ajout du LayerSwitcher à la carte
+map.addControl(lsControl);
 ```
 
-**Exemple d'utilisation** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/0t1nLra7/embedded/result,js,html,css/)
+**Exemple d'utilisation** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/5f9wxsof/embedded/result,js,html,css/)
 
 <a id="geocode"/>
 
@@ -374,10 +485,10 @@ La barre de recherche permet de positionner la carte à partir de la saisie d'un
 
 La saisie de localisants peut s'accompagner d'un mode d'autocomplétion s'appuyant sur le service d'autocomplétion de la plateforme Géoportail.
 
-Son utilisation se fait par la création d'un nouveau contrôle à l'aide de la fonction [L.geoportalControl.SearchEngine()](http://depot.ign.fr/geoportail/extensions/ol3/develop/doc/module-Controls.html#~SearchEngine), que l'on peut ensuite ajouter à la carte comme [les autres contrôles OpenLayers 3](http://ol3js.com/reference.html#map-stuff-methods), par exemple de la manière suivante :
+Son utilisation se fait par la création d'un nouveau contrôle, instance de la calsse [ol.control.SearchEngine](https://depot.ign.fr/geoportail/extensions/ol3/develop/doc/ol.control.SearchEngine.html), que l'on peut ensuite ajouter à la carte comme [les autres contrôles OpenLayers 3](http://openlayers.org/en/latest/apidoc/ol.Map.html#addControl), de la manière suivante :
 
 ``` javascript
-var search = L.geoportalControl.SearchEngine(opts);
+var search = new ol.control.SearchEngine(opts) ;
 map.addControl(search);
 ```
 
@@ -388,22 +499,30 @@ map.addControl(search);
 Ajout du moteur de recherhe sans paramétrage particulier.
 
 ``` javascript
-// creation de la carte
-map = L.map("map").setView([47, 2.424], 12);
-
-// ajout d'une couche
-var lyrMaps = L.geoportalLayer.WMTS({
-    layer: "GEOGRAPHICALGRIDSYSTEMS.MAPS",
+// Création de la carte
+var map = new ol.Map({
+    target: 'map',
+    layers: [
+        new ol.layer.GeoportalWMTS({
+            layer: "GEOGRAPHICALGRIDSYSTEMS.MAPS"
+        })
+    ],
+    view: new ol.View({
+        center: [288074.8449901076, 6247982.515792289],
+        zoom: 12
+    })
 });
-map.addLayer(lyrMaps) ;
 
-// création et ajout du controle
-var searchCtrl = L.geoportalControl.SearchEngine({
+// Creation du controle
+var searchControl = new ol.control.SearchEngine({
 });
-map.addControl(searchCtrl);
+
+// Ajout à la carte
+map.addControl(searchControl);
 ```
 
-**Exemple d'utilisation** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/uLokwebc/embedded/result,js,html,css/)
+**Exemple d'utilisation** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/qpcyp8nr/embedded/result,js,html,css/)
+
 
 <a id="route"/>
 
@@ -411,10 +530,10 @@ map.addControl(searchCtrl);
 
 Le widget de calcul d'itinéraires permet d'intéragir avec une carte OpenLayers 3 pour effectuer des calculs d'itinéraires utilisant le service dédié de la plateforme Géoportail.
 
-Son utilisation se fait par la création d'un nouveau contrôle à l'aide de la fonction [L.geoportalControl.Route()](http://depot.ign.fr/geoportail/extensions/ol3/develop/doc/module-Controls.html#~Route), que l'on peut ensuite ajouter à la carte comme [les autres contrôles OpenLayers 3](http://ol3js.com/reference.html#map-stuff-methods), par exemple de la manière suivante :
+Son utilisation se fait par la création d'un nouveau contrôle instance de la classe [ol.control.Route](https://depot.ign.fr/geoportail/extensions/ol3/develop/doc/ol.control.Route.html), que l'on peut ensuite ajouter à la carte comme [les autres contrôles OpenLayers 3](http://openlayers.org/en/latest/apidoc/ol.Map.html#addControl), de la manière suivante :
 
 ``` javascript
-var route = L.geoportalControl.Route(opts);
+var route = new ol.control.Route(opts) ;
 map.addControl(route);
 ```
 
@@ -425,22 +544,29 @@ map.addControl(route);
 Ajout du widget sans paramétrage particulier.
 
 ``` javascript
-// creation de la carte
-map = L.map("map").setView([47, 2.424], 12);
-
-// ajout d'une couche
-var lyrMaps = L.geoportalLayer.WMTS({
-    layer: "GEOGRAPHICALGRIDSYSTEMS.MAPS",
+// Création de la carte
+var map = new ol.Map({
+    target: 'map',
+    layers: [
+        new ol.layer.GeoportalWMTS({
+            layer: "GEOGRAPHICALGRIDSYSTEMS.MAPS"
+        })
+    ],
+    view: new ol.View({
+        center: [288074.8449901076, 6247982.515792289],
+        zoom: 12
+    })
 });
-map.addLayer(lyrMaps) ;
 
-// création et ajout du controle
-var routeCtrl = L.geoportalControl.Route({
+// Creation du controle
+var routeControl = new ol.control.Route({
 });
-map.addControl(routeCtrl);
+
+// Ajout à la carte
+map.addControl(routeControl);
 ```
 
-**Exemple d'utilisation** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/s30zo9eo/embedded/result,js,html,css/)
+**Exemple d'utilisation** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/1ngLrhuj/embedded/result,js,html,css/)
 
 <a id="isocurve"/>
 
@@ -448,10 +574,10 @@ map.addControl(routeCtrl);
 
 Ce widget permet d'intéragir avec une carte OpenLayers 3 pour effectuer des calculs d'isochrones / isodistances utilisant le service dédié de la plateforme Géoportail.
 
-Son utilisation se fait par la création d'un nouveau contrôle à l'aide de la fonction [L.geoportalControl.Isocurve()](http://depot.ign.fr/geoportail/extensions/ol3/develop/doc/module-Controls.html#~Isocurve), que l'on peut ensuite ajouter à la carte comme [les autres contrôles OpenLayers 3](http://ol3js.com/reference.html#map-stuff-methods), par exemple de la manière suivante :
+Son utilisation se fait par la création d'un nouveau contrôle, instance de la classe [ol.control.Isocurve()](https://depot.ign.fr/geoportail/extensions/ol3/develop/doc/ol.control.Isocurve.html), que l'on peut ensuite ajouter à la carte comme [les autres contrôles OpenLayers 3](http://openlayers.org/en/latest/apidoc/ol.Map.html#addControl), de la manière suivante :
 
 ``` javascript
-var iso = L.geoportalControl.Isocurve(opts);
+var iso = new ol.control.Isocurve(opts);
 map.addControl(iso);
 ```
 
@@ -462,22 +588,29 @@ map.addControl(iso);
 Ajout du widget sans paramétrage particulier.
 
 ``` javascript
-// creation de la carte
-map = L.map("map").setView([47, 2.424], 12);
-
-// ajout d'une couche
-var lyrMaps = L.geoportalLayer.WMTS({
-    layer: "GEOGRAPHICALGRIDSYSTEMS.MAPS",
+// Création de la carte
+var map = new ol.Map({
+    target: 'map',
+    layers: [
+        new ol.layer.GeoportalWMTS({
+            layer: "GEOGRAPHICALGRIDSYSTEMS.MAPS"
+        })
+    ],
+    view: new ol.View({
+        center: [288074.8449901076, 6247982.515792289],
+        zoom: 12
+    })
 });
-map.addLayer(lyrMaps) ;
 
-// création et ajout du controle
-var isoCtrl = L.geoportalControl.Isocurve({
+// Creation du controle
+var isoControl = new ol.control.Isocurve({
 });
-map.addControl(isoCtrl);
+
+// Ajout à la carte
+map.addControl(isoControl);
 ```
 
-**Exemple d'utilisation** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/z85j92hv/embedded/result,js,html,css/)
+**Exemple d'utilisation** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/jpwf385t/embedded/result,js,html,css/)
 
 <a id="mp"/>
 
@@ -485,10 +618,10 @@ map.addControl(isoCtrl);
 
 Ce widget permet d'afficher les coordonnées d'un point choisi par l'internaute sur une carte OpenLayers 3 dans un ou plusieurs systèmes de coordonnées. Ces coordonnées peuvent comprendre l'altitude obtenue à l'aide du service d'altimétrie de la plateforme Géoportail.
 
-Son utilisation se fait par la création d'un nouveau contrôle à l'aide de la fonction [L.geoportalControl.MousePosition()](http://depot.ign.fr/geoportail/extensions/ol3/develop/doc/module-Controls.html#~MousePosition), que l'on peut ensuite ajouter à la carte comme [les autres contrôles OpenLayers 3](http://ol3js.com/reference.html#map-stuff-methods), par exemple de la manière suivante :
+Son utilisation se fait par la création d'un nouveau contrôle, instance de la classe [ol.control.GeoportalMousePosition](https://depot.ign.fr/geoportail/extensions/ol3/develop/doc/ol.control.GeoportalMousePosition.html), que l'on peut ensuite ajouter à la carte comme [les autres contrôles OpenLayers 3](http://openlayers.org/en/latest/apidoc/ol.Map.html#addControl), de la manière suivante :
 
 ``` javascript
-var mp = L.geoportalControl.MousePosition(opts);
+var mp = new ol.control.GeoportalMousePosition(opts);
 map.addControl(mp);
 ```
 
@@ -499,21 +632,164 @@ map.addControl(mp);
 Ajout du widget sans paramétrage particulier.
 
 ``` javascript
-// creation de la carte
-map = L.map("map").setView([47, 2.424], 12);
-
-// ajout d'une couche
-var lyrMaps = L.geoportalLayer.WMTS({
-    layer: "GEOGRAPHICALGRIDSYSTEMS.MAPS",
+// Création de la carte
+var map = new ol.Map({
+    target: 'map',
+    layers: [
+        new ol.layer.GeoportalWMTS({
+            layer: "GEOGRAPHICALGRIDSYSTEMS.MAPS"
+        })
+    ],
+    view: new ol.View({
+        center: [288074.8449901076, 6247982.515792289],
+        zoom: 12
+    })
 });
-map.addLayer(lyrMaps) ;
 
-// création et ajout du controle
-var mpCtrl = L.geoportalControl.MousePosition({
+// Creation du controle
+var mpControl = new ol.control.GeoportalMousePosition({
 });
-map.addControl(mpCtrl);
+
+// Ajout à la carte
+map.addControl(mpControl);
 ```
 
-**Exemple d'utilisation avec affichage unique de l'altitude** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/cenwojqe/embedded/result,js,html,css/)
+**Exemple d'utilisation avec affichage unique de l'altitude** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/jhg5fhor/embedded/result,js,html,css/)
 
-**Exemple d'utilisation avec paramétrage des systèmes de coordonnées** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/oy601s3c/embedded/result,js,html,css/)
+**Exemple d'utilisation avec paramétrage des systèmes de coordonnées** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/myg4t6qo/embedded/result,js,html,css/)
+
+<a id="attributions"/>
+
+### Affichage dynamique des attributions
+
+Ce widget a pour but d'afficher les attributions (de type [ol.Attribution](http://openlayers.org/en/latest/apidoc/ol.Attribution.html)) associées aux couches visibles sur la carte. Il étend les fonctionnalités du contrôle natif d'OpenLayers ([ol.control.Attribution](http://openlayers.org/en/latest/apidoc/ol.control.Attribution.html)) dont il hérite en permettant l'affichage des attributions en fonction du positionnement de la carte (centre, zoom) pour les couches ayant des originators multiples.
+
+Les couches Géoportail (de type [WMS](#WMS) ou [WMTS](#WMTS)) possèdent nativement cette propriété. Pour les autres, le paramétrage dynamique des originators se fait par l'adjonction à l'objet source de la couche de la propriété "\_originators", tableau de [Gp.Services.Config.Originator](http://ignf.github.io/geoportal-access-lib/v1.0.0-beta.1/jsdoc/Gp.Services.Config.Originator.html).
+
+Son utilisation se fait par la création d'un nouveau contrôle, instance de la classe [ol.control.GeoportalAttribution](https://depot.ign.fr/geoportail/extensions/ol3/develop/doc/ol.control.GeoportalAttribution.html), que l'on peut ensuite ajouter à la carte comme [les autres contrôles OpenLayers 3](http://openlayers.org/en/latest/apidoc/ol.Map.html#addControl), de la manière suivante :
+
+``` javascript
+var att = new ol.control.GeoportalAttribution(opts);
+map.addControl(att);
+```
+
+#### Exemples d'utilisation
+
+##### Utilisation simple
+
+Ajout du widget sans paramétrage particulier.
+
+``` javascript
+// Création de la carte
+var map = new ol.Map({
+    target: 'map',
+    layers: [
+        new ol.layer.GeoportalWMTS({
+            layer: "GEOGRAPHICALGRIDSYSTEMS.MAPS"
+        })
+    ],
+    view: new ol.View({
+        center: [288074.8449901076, 6247982.515792289],
+        zoom: 12
+    })
+});
+
+// Creation du controle
+var attControl = new ol.control.GeoportalAttribution({
+});
+
+// Ajout à la carte
+map.addControl(attControl);
+```
+
+**Exemple d'utilisation** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/x1jrLavb/embedded/result,js,html,css/)
+
+<a id="reverse"/>
+
+### Adresse ou lieu en un point de la carte
+
+Ce widget permet d'obtenir un ensemble de localisants Géographiques (adresses, toponymes ou parcelles cadastrales) en un point ou une zone (cercle ou emprise rectangulaire) saisie interactivement par l'internaute sur une carte OpenLayers 3.
+
+Son utilisation se fait par la création d'un nouveau contrôle, instance de la classe [ol.control.ReverseGeocode](https://depot.ign.fr/geoportail/extensions/ol3/develop/doc/ol.control.ReverseGeocode.html), que l'on peut ensuite ajouter à la carte comme [les autres contrôles OpenLayers 3](http://openlayers.org/en/latest/apidoc/ol.Map.html#addControl), de la manière suivante :
+
+``` javascript
+var reverse = new ol.control.ReverseGeocode(opts);
+map.addControl(reverse);
+```
+
+#### Exemples d'utilisation
+
+##### Utilisation simple
+
+Ajout du widget sans paramétrage particulier.
+
+``` javascript
+// Création de la carte
+var map = new ol.Map({
+    target: 'map',
+    layers: [
+        new ol.layer.GeoportalWMTS({
+            layer: "GEOGRAPHICALGRIDSYSTEMS.MAPS"
+        })
+    ],
+    view: new ol.View({
+        center: [288074.8449901076, 6247982.515792289],
+        zoom: 12
+    })
+});
+
+// Creation du controle
+var rvControl = new ol.control.ReverseGeocode({
+});
+
+// Ajout à la carte
+map.addControl(rvControl);
+```
+
+**Exemple d'utilisation** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/todo/embedded/result,js,html,css/)
+
+<a id="drawing"/>
+
+### Outils de croquis
+
+Ce widget propose un ensemble d'outils de croquis permettant de dessiner sur une carte OpenLayers 3 poser des markers, dessiner des lignes, polygones ou faire des écritures dans des styles choisis par l'internaute.
+
+Son utilisation se fait par la création d'un nouveau contrôle, instance de la classe [ol.control.Drawing](https://depot.ign.fr/geoportail/extensions/ol3/develop/doc/ol.control.GeoportalDrawing.html), que l'on peut ensuite ajouter à la carte comme [les autres contrôles OpenLayers 3](http://openlayers.org/en/latest/apidoc/ol.Map.html#addControl), de la manière suivante :
+
+``` javascript
+var drawing = new ol.control.Drawing(opts);
+map.addControl(drawing);
+```
+
+#### Exemples d'utilisation
+
+##### Utilisation simple
+
+Ajout du widget sans paramétrage particulier.
+
+``` javascript
+// Création de la carte
+var map = new ol.Map({
+    target: 'map',
+    layers: [
+        new ol.layer.GeoportalWMTS({
+            layer: "GEOGRAPHICALGRIDSYSTEMS.MAPS"
+        })
+    ],
+    view: new ol.View({
+        center: [288074.8449901076, 6247982.515792289],
+        zoom: 12
+    })
+});
+
+// Creation du controle
+var drawControl = new ol.control.Drawing({
+});
+
+// Ajout à la carte
+map.addControl(drawControl);
+```
+
+**Exemple d'utilisation** [![jsFiddle](http://jsfiddle.net/img/embeddable/logo-dark.png)](http://jsfiddle.net/ignfgeoportail/TODO/embedded/result,js,html,css/)
+
+
