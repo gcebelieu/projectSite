@@ -20,11 +20,11 @@ Ces extensions proposent des classes et widgets utilisables en complément de la
 
 ## LEAFLET
 
-Voir le détail des [fonctionnalités proposées par l'extension Géoportail pour Leaflet](README-leaflet.html)
+Voir le détail des [fonctionnalités proposées par l'extension Géoportail pour Leaflet](README-leaflet.md)
 
 
 
 ### OPENLAYER3
 
-Voir le détail des [fonctionnalités proposées par l'extension Géoportail pour OpenLayers 3](README-ol3.html)
+Voir le détail des [fonctionnalités proposées par l'extension Géoportail pour OpenLayers 3](README-ol3.md)
 
