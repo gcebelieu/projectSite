@@ -1,0 +1,30 @@
+<html>
+<body>
+<p>Saisir sa clef</p>
+<input type="text" value="jhyvi0fgmnuxvfv0zjzorvdn" id="apiKey"></input>
+<input type="button" onclick="doIt()"></input>
+<script type="text/javascript" src="https://depot.ign.fr/geoportail/bibacces/develop/js/GpServices.js"></script>
+<script type="text/javascript">
+
+function doIt() {
+    var kelem = document.getElementById("apiKey") ;
+    Gp.Services.getConfig({
+        apiKey : kelem.value,
+        rawResponse : true,
+        onSuccess : function(result) {
+            var jsonpResult = result ;
+            if (result.indexOf("callback") < 0) {
+                // result en XML => needs jsonp
+                jsonpResult = 'callback({"http":{"status":200,"error":null},"xml":"' + result.replace(/"/g,'\\"') + '"});' ;
+            }
+            var a = document.createElement("a") ;
+            a.setAttribute("href","data:text/javascript;charset=utf-8," + encodeURIComponent(jsonpResult)) ;
+            a.setAttribute("download", "autoconf.json") ;
+            document.body.appendChild(a) ;
+            a.click() ;
+        }
+    }) ;
+}
+</script>
+</body>
+</html>
